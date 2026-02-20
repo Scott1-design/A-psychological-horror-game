@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Psychological Horror Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English:ital@0;1&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blood: #7a0000;
+    --deep-blood: #3d0000;
+    --ash: #b0a89a;
+    --void: #050508;
+    --fog: rgba(180, 160, 140, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--void);
+    overflow-x: hidden;
+    font-family: 'IM Fell English', serif;
+    color: var(--ash);
+    cursor: crosshair;
+  }
+
+  /* ── Grain Overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 999; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    opacity: 0.04;
+  }
+
+  /* ── Background fog layers ── */
+  .bg-layer {
+    position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 80%, #1a0505 0%, transparent 70%),
+                radial-gradient(ellipse 60% 40% at 20% 20%, #0d0208 0%, transparent 60%),
+                radial-gradient(ellipse 50% 70% at 80% 10%, #050510 0%, transparent 55%);
+    animation: breathe 8s ease-in-out infinite alternate;
+  }
+  @keyframes breathe {
+    from { opacity: 0.7; }
+    to   { opacity: 1; }
+  }
+
+  /* ── Vignette ── */
+  .vignette {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.85) 100%);
+  }
+
+  /* ── Blood drips at top ── */
+  .drips {
+    position: fixed; top: 0; left: 0; width: 100%; z-index: 2; pointer-events: none;
+  }
+  .drip {
+    position: absolute; top: 0; width: 3px; background: linear-gradient(to bottom, #5a0000, transparent);
+    transform-origin: top center;
+    animation: drip-fall var(--d) ease-in var(--delay) infinite;
+    opacity: 0;
+  }
+  @keyframes drip-fall {
+    0%   { opacity: 0; height: 0; }
+    10%  { opacity: 0.8; }
+    80%  { opacity: 0.6; height: var(--h); }
+    100% { opacity: 0; height: var(--h); }
+  }
+
+  /* ── Main layout ── */
+  .page {
+    position: relative; z-index: 10;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+  }
+
+  /* ── Header bar ── */
+  .top-bar {
+    width: 100%; padding: 20px 40px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid rgba(90, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+  }
+  .top-bar .tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; letter-spacing: 3px; color: #444;
+    text-transform: uppercase;
+  }
+  .top-bar .warn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; letter-spacing: 2px; color: #5a0000;
+    animation: flicker-warn 4s step-end infinite;
+  }
+  @keyframes flicker-warn {
+    0%,100% { opacity: 1; }
+    30%      { opacity: 0.3; }
+    31%      { opacity: 1; }
+    60%      { opacity: 0.6; }
+    61%      { opacity: 1; }
+    90%      { opacity: 0.2; }
+    91%      { opacity: 1; }
+  }
+
+  /* ── Hero ── */
+  .hero {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 60px 20px 40px;
+    text-align: center;
+    max-width: 900px; margin: 0 auto;
+  }
+
+  .eyebrow {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; letter-spacing: 6px; color: #5a0000;
+    text-transform: uppercase; margin-bottom: 28px;
+    opacity: 0; animation: fade-in 1.5s 0.5s forwards;
+  }
+
+  .title-wrap {
+    position: relative; margin-bottom: 16px;
+  }
+  .title {
+    font-family: 'Cinzel Decorative', cursive;
+    font-size: clamp(38px, 7vw, 82px);
+    font-weight: 700;
+    line-height: 1.05;
+    color: #c0b0a0;
+    text-shadow: 0 0 60px rgba(120, 0, 0, 0.5), 0 0 120px rgba(100, 0, 0, 0.2);
+    letter-spacing: 4px;
+    animation: title-flicker 6s ease-in-out infinite, fade-in 2s 0.2s both;
+  }
+  @keyframes title-flicker {
+    0%,100% { text-shadow: 0 0 60px rgba(120,0,0,0.5), 0 0 120px rgba(100,0,0,0.2); opacity: 1; }
+    10%      { opacity: 0.95; }
+    20%      { opacity: 1; }
+    50%      { text-shadow: 0 0 40px rgba(120,0,0,0.3), 0 0 80px rgba(100,0,0,0.1); }
+    70%      { opacity: 0.85; text-shadow: 0 0 80px rgba(150,0,0,0.7); }
+    71%      { opacity: 1; }
+  }
+
+  .subtitle {
+    font-size: clamp(14px, 2vw, 20px);
+    font-style: italic;
+    color: #6a5a4a;
+    letter-spacing: 2px;
+    margin-bottom: 50px;
+    opacity: 0; animation: fade-in 1.5s 1s forwards;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    width: 220px; height: 1px;
+    background: linear-gradient(to right, transparent, #5a0000, transparent);
+    margin: 0 auto 50px;
+    opacity: 0; animation: fade-in 1.5s 1.2s forwards;
+  }
+
+  /* ── Lore text ── */
+  .lore {
+    max-width: 540px;
+    font-size: 15px; line-height: 1.9;
+    color: #7a6a5a;
+    font-style: italic;
+    margin-bottom: 60px;
+    opacity: 0; animation: fade-in 1.5s 1.5s forwards;
+  }
+  .lore em {
+    color: #9a8070; font-style: normal;
+  }
+
+  /* ── Play Button ── */
+  .play-btn-wrap {
+    opacity: 0; animation: fade-in 1.5s 2s forwards;
+    margin-bottom: 20px;
+  }
+  .play-btn {
+    position: relative;
+    display: inline-block;
+    padding: 20px 70px;
+    font-family: 'Cinzel Decorative', cursive;
+    font-size: 15px; letter-spacing: 6px;
+    text-transform: uppercase;
+    color: #c8b0a0;
+    text-decoration: none;
+    border: 1px solid rgba(120, 0, 0, 0.5);
+    background: transparent;
+    cursor: pointer;
+    overflow: hidden;
+    transition: color 0.4s, border-color 0.4s;
+  }
+  .play-btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(80,0,0,0.4) 0%, rgba(40,0,0,0.6) 100%);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    z-index: -1;
+  }
+  .play-btn::after {
+    content: '';
+    position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 0; height: 1px;
+    background: #8a0000;
+    transition: width 0.4s ease;
+  }
+  .play-btn:hover { color: #fff; border-color: #8a0000; }
+  .play-btn:hover::before { transform: scaleX(1); }
+  .play-btn:hover::after  { width: 100%; }
+
+  /* corner accents */
+  .play-btn .corner {
+    position: absolute; width: 8px; height: 8px;
+    border-color: #5a0000; border-style: solid;
+    transition: border-color 0.3s;
+  }
+  .play-btn .corner.tl { top: 4px; left: 4px; border-width: 1px 0 0 1px; }
+  .play-btn .corner.tr { top: 4px; right: 4px; border-width: 1px 1px 0 0; }
+  .play-btn .corner.bl { bottom: 4px; left: 4px; border-width: 0 0 1px 1px; }
+  .play-btn .corner.br { bottom: 4px; right: 4px; border-width: 0 1px 1px 0; }
+  .play-btn:hover .corner { border-color: #cc0000; }
+
+  .caution {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; letter-spacing: 2px; color: #3a2a2a;
+    text-align: center;
+    opacity: 0; animation: fade-in 1.5s 2.5s forwards;
+    margin-bottom: 60px;
+  }
+
+  /* ── Features strip ── */
+  .features {
+    display: flex; gap: 50px; flex-wrap: wrap; justify-content: center;
+    margin-bottom: 80px;
+    opacity: 0; animation: fade-in 1.5s 2.2s forwards;
+  }
+  .feat {
+    text-align: center; max-width: 140px;
+  }
+  .feat-icon {
+    font-size: 22px; margin-bottom: 8px;
+    filter: grayscale(1) brightness(0.6);
+  }
+  .feat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; letter-spacing: 3px; color: #3a3030;
+    text-transform: uppercase; line-height: 1.5;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    width: 100%; padding: 24px 40px;
+    border-top: 1px solid rgba(50,20,20,0.5);
+    display: flex; justify-content: space-between; align-items: center;
+    backdrop-filter: blur(4px);
+  }
+  .footer .copy {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; letter-spacing: 2px; color: #2a2020;
+  }
+  .footer .version {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; letter-spacing: 2px; color: #3a2020;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Glitch on hover over title ── */
+  .title-wrap:hover .title {
+    animation: glitch 0.3s steps(2) 1, title-flicker 6s ease-in-out infinite;
+  }
+  @keyframes glitch {
+    0%  { text-shadow: -3px 0 #ff0000, 3px 0 #0000ff; clip-path: inset(10% 0 80% 0); }
+    25% { text-shadow: 3px 0 #ff0000, -3px 0 #0000ff; clip-path: inset(60% 0 10% 0); }
+    50% { text-shadow: -3px 0 #ff0000, 3px 0 #0000ff; clip-path: inset(30% 0 50% 0); }
+    75% { text-shadow: 3px 0 #ff0000, -3px 0 #0000ff; clip-path: inset(50% 0 30% 0); }
+    100%{ text-shadow: 0 0 60px rgba(120,0,0,0.5);    clip-path: inset(0); }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .top-bar { padding: 16px 20px; }
+    .footer  { padding: 16px 20px; flex-direction: column; gap: 8px; }
+    .features{ gap: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Animated blood drips -->
+<div class="drips" id="drips"></div>
+
+<!-- Background layers -->
+<div class="bg-layer"></div>
+<div class="vignette"></div>
+
+<div class="page">
+
+  <!-- Top bar -->
+  <header class="top-bar">
+    <span class="tag">The Bedroom · v2.0</span>
+    <span class="warn">⚠ CONTENT WARNING: DISTURBING IMAGERY</span>
+  </header>
+
+  <!-- Hero -->
+  <main class="hero">
+    <div class="eyebrow">An Experience of Isolation & Terror</div>
+
+    <div class="title-wrap">
+      <h1 class="title">A Psychological<br>Horror Game</h1>
+    </div>
+
+    <p class="subtitle">You wake up. The door is locked. You are not alone.</p>
+    <div class="divider"></div>
+
+    <p class="lore">
+      Confined within the walls of <em>The Bedroom</em>, reality begins to unravel.
+      What you see cannot be trusted. What you hear may already be too late.
+      The darkness has been waiting for you — and it knows your name.
+    </p>
+
+    <div class="play-btn-wrap">
+      <a class="play-btn" href="psychological_horror_3d.html">
+        <span class="corner tl"></span>
+        <span class="corner tr"></span>
+        <span class="corner bl"></span>
+        <span class="corner br"></span>
+        ▶ &nbsp;Play Now
+      </a>
+    </div>
+
+    <p class="caution">HEADPHONES RECOMMENDED · NOT FOR THE FAINT OF HEART</p>
+
+    <div class="features">
+      <div class="feat">
+        <div class="feat-icon">🎧</div>
+        <div class="feat-label">Immersive<br>Atmosphere</div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">👁</div>
+        <div class="feat-label">Psychological<br>Horror</div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">🌒</div>
+        <div class="feat-label">3D<br>Environment</div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">🔓</div>
+        <div class="feat-label">Browser<br>Playable</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <span class="copy">© The Bedroom — All Rights Reserved</span>
+    <span class="version">BUILD 001 · 2025</span>
+  </footer>
+
+</div>
+
+<script>
+  // Generate blood drips
+  const dripsContainer = document.getElementById('drips');
+  const drips = 18;
+  for (let i = 0; i < drips; i++) {
+    const d = document.createElement('div');
+    d.className = 'drip';
+    const left   = Math.random() * 100;
+    const height = 40 + Math.random() * 140;
+    const dur    = 3 + Math.random() * 6;
+    const delay  = Math.random() * 12;
+    d.style.cssText = `left:${left}%; --h:${height}px; --d:${dur}s; --delay:${delay}s; width:${1 + Math.random()*2}px;`;
+    dripsContainer.appendChild(d);
+  }
+
+  // Subtle random flicker on page
+  setInterval(() => {
+    if (Math.random() < 0.05) {
+      document.body.style.filter = 'brightness(0.85)';
+      setTimeout(() => document.body.style.filter = '', 60 + Math.random() * 100);
+    }
+  }, 1500);
+</script>
+
+</body>
+</html>
